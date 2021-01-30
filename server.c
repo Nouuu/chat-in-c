@@ -3,46 +3,46 @@
 //
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
+#include "mySocket.h"
 
-struct sockaddr_in serverSocket;
 struct sockaddr_in clientSocket;
-int clientSocketSize;
-int socketfd;
-int clientfd;
+
+unsigned int clientSocketSize;
+
+SOCKET serverSocket_fd;
+SOCKET clientfd;
+
 int port;
 char bufferMessage[256] = {0};
 
 int main(int arg, char **argv) {
+
     if (arg != 2) {
         printf("You need to provide port n°\n");
         return EXIT_FAILURE;
     }
+
+    initSocket();
+
     port = atoi(argv[1]);
-    serverSocket.sin_family = AF_INET;
-    serverSocket.sin_port = htons(port);
-    serverSocket.sin_addr.s_addr = INADDR_ANY;
 
-    socketfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    int result = bind(socketfd, (struct sockaddr *) &serverSocket, sizeof(serverSocket));
-    if (result == -1) {
-        printf("Error when bind socket!\n");
-        perror("");
+    serverSocket_fd = createServerSocket(AF_INET, SOCK_STREAM, 0, port);
+    if(serverSocket_fd == -1){
         return EXIT_FAILURE;
     }
 
-    listen(socketfd, 40);
+    if( listen(serverSocket_fd, 40) == -1){
+        displayLastSocketError("Error on listen() server socket");
+        return  EXIT_FAILURE;
+    }
 
     printf("Server on and listen on %d port\n", port);
 
     clientSocketSize = sizeof(clientSocket);
 
-    while ((clientfd = accept(socketfd, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
+    while ((clientfd = accept(serverSocket_fd, (struct sockaddr *) &clientSocket, &clientSocketSize))) {
         printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
 
         int pid = fork();
@@ -56,12 +56,13 @@ int main(int arg, char **argv) {
                 memset(bufferMessage, 0, 256);
             }
             printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
-            close(socketfd);
+            close(serverSocket_fd);
             close(clientfd);
             return EXIT_SUCCESS;
         }
     }
 
-    close(socketfd);
+    close(serverSocket_fd);
+    endSocket();
     return EXIT_SUCCESS;
 }
