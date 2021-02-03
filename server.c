@@ -9,13 +9,12 @@
 #include <string.h>
 #include <unistd.h>
 
-struct sockaddr_in clientSocket;
-int clientSocketSize;
-int socketfd;
-int clientfd;
 char bufferMessage[256] = {0};
 
 int serverEngine(int port);
+
+int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd);
+
 int main(int arg, char **argv) {
     if (arg != 2) {
         printf("You need to provide port n°\n");
@@ -23,7 +22,7 @@ int main(int arg, char **argv) {
     }
     int port = atoi(argv[1]);
 
-    if(port == 0) {
+    if (port == 0) {
         return EXIT_FAILURE;
     }
 
@@ -31,25 +30,20 @@ int main(int arg, char **argv) {
 }
 
 int serverEngine(int port) {
-    struct sockaddr_in serverSocket;
-    serverSocket.sin_family = AF_INET;
-    serverSocket.sin_port = htons(port);
-    serverSocket.sin_addr.s_addr = INADDR_ANY;
+    struct sockaddr_in serverSocket; //main socket variable
+    struct sockaddr_in clientSocket;
+    int clientSocketSize = sizeof(clientSocket);
+    int serverFD; // Socket file descriptor to identify socket
+    int clientFD;
 
-    socketfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    int result = bind(socketfd, (struct sockaddr *) &serverSocket, sizeof(serverSocket));
-    if (result == -1) {
-        printf("Error when bind socket!\n");
-        perror("");
+    if (initServerSocket(port, &serverSocket, &serverFD) == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
 
-    listen(socketfd, 40);
+    listen(serverFD, 40);
 
     printf("Server on and listen on %d port\n", port);
 
-    clientSocketSize = sizeof(clientSocket);
 
     while ((clientfd = accept(socketfd, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
         printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
@@ -72,5 +66,21 @@ int serverEngine(int port) {
     }
 
     close(socketfd);
+    return EXIT_SUCCESS;
+}
+
+int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd) {
+    serverSocket->sin_family = AF_INET;
+    serverSocket->sin_port = htons(port);
+    serverSocket->sin_addr.s_addr = INADDR_ANY;
+
+    *socketfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    int result = bind(*socketfd, (struct sockaddr *) serverSocket, sizeof(*serverSocket));
+    if (result == -1) {
+        printf("Error when bind socket!\n");
+        perror("");
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }
