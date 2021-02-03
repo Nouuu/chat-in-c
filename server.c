@@ -23,6 +23,8 @@ void serverListenLoop(int serverFD);
 
 void *clientConnectionHandler(void *args);
 
+void clientListenLoop(int clientFD, char *bufferMessage, char *ip);
+
 int main(int arg, char **argv) {
     if (arg != 2) {
         printf("You need to provide port n°\n");
@@ -98,18 +100,22 @@ void *clientConnectionHandler(void *args) {
 
     printf("Connected !\nClient IP is %s\n", ip);
 
-    while (recv(clientFD, bufferMessage, 255, 0) > 0) {
-
-        if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
-            break;
-        }
-        printf("New message from %s : %s\n", ip, bufferMessage);
-        memset(bufferMessage, 0, 256);
-    }
+    clientListenLoop(clientFD, bufferMessage, ip);
 
     printf("%s leaving\n", ip);
     close(clientFD);
     free(ip);
     free(bufferMessage);
     pthread_exit(NULL);
+}
+
+void clientListenLoop(int clientFD, char *bufferMessage, char *ip) {
+    while (recv(clientFD, bufferMessage, 255, 0) > 0) {
+
+        if (strstr(bufferMessage, server_exit_command) == bufferMessage) {
+            break;
+        }
+        printf("New message from %s : %s\n", ip, bufferMessage);
+        memset(bufferMessage, 0, 256);
+    }
 }
