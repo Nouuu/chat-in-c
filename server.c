@@ -14,11 +14,23 @@
 typedef struct arg_struct {
     int *socketfd;
     const char *ipaddress;
-}arg_struct;
+} arg_struct;
+
+typedef struct user_list_struct {
+    int size;
+    char *userlist[10];
+    pthread_mutex_t mutex;
+} user_list_struct;
 
 const char *server_exit_command = "/exit";
 const char *server_pseudo_command = "/pseudo";
+const char *server_list_users_command = "/list";
 const int server_pseudo_max_size = 10;
+
+static user_list_struct user_list = {
+        .size=0,
+        .mutex = PTHREAD_MUTEX_INITIALIZER,
+};
 
 int serverEngine(int port);
 
@@ -31,6 +43,8 @@ void *clientConnectionHandler(void *args);
 void clientListenLoop(int clientFD, char *bufferMessage, char *ip);
 
 char *getPseudo(const char *bufferMessage, const char *ip);
+
+void listUsers();
 
 int main(int arg, char **argv) {
     if (arg != 2) {
@@ -124,6 +138,8 @@ void clientListenLoop(int clientFD, char *bufferMessage, char *ip) {
             break;
         } else if (strstr(bufferMessage, server_pseudo_command) == bufferMessage) {
             pseudo = getPseudo(bufferMessage, ip);
+        } else if (strstr(bufferMessage, server_list_users_command) == bufferMessage) {
+            listUsers();
         } else {
             if (!pseudo) {
                 printf("New message from %s : %s\n", ip, bufferMessage);
@@ -132,6 +148,9 @@ void clientListenLoop(int clientFD, char *bufferMessage, char *ip) {
             }
         }
         memset(bufferMessage, 0, 256);
+    }
+    if (pseudo) {
+        free(pseudo);
     }
 }
 
@@ -153,5 +172,23 @@ char *getPseudo(const char *bufferMessage, const char *ip) {
     }
     char *pseudo = strndup(bufferMessage + command_size + 1, size);
     printf("(%s) registered as '%s'\n", ip, pseudo);
+
+    pthread_mutex_lock(&user_list.mutex);
+
+    user_list.userlist[user_list.size] = strdup(pseudo);
+    user_list.size++;
+
+    pthread_mutex_unlock(&user_list.mutex);
+
     return pseudo;
+}
+
+void listUsers() {
+    pthread_mutex_lock(&user_list.mutex);
+    printf("User registered :\n");
+    for (int i = 0; i < user_list.size; ++i) {
+        printf("- %s\n", user_list.userlist[i]);
+    }
+
+    pthread_mutex_unlock(&user_list.mutex);
 }
