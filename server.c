@@ -15,6 +15,8 @@ int serverEngine(int port);
 
 int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd);
 
+void serverListenLoop(int serverFD);
+
 int main(int arg, char **argv) {
     if (arg != 2) {
         printf("You need to provide port n°\n");
@@ -31,11 +33,7 @@ int main(int arg, char **argv) {
 
 int serverEngine(int port) {
     struct sockaddr_in serverSocket; //main socket variable
-    struct sockaddr_in clientSocket;
-    int clientSocketSize = sizeof(clientSocket);
     int serverFD; // Socket file descriptor to identify socket
-    int clientFD;
-
     if (initServerSocket(port, &serverSocket, &serverFD) == EXIT_FAILURE) {
         return EXIT_FAILURE;
     }
@@ -44,26 +42,7 @@ int serverEngine(int port) {
 
     printf("Server on and listen on %d port\n", port);
 
-
-    while ((clientFD = accept(serverFD, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
-        printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
-
-        int pid = fork();
-        if (pid == 0) {
-            while (recv(clientFD, bufferMessage, 255, 0) > 0) {
-
-                if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
-                    break;
-                }
-                printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
-                memset(bufferMessage, 0, 256);
-            }
-            printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
-            close(serverFD);
-            close(clientFD);
-            return EXIT_SUCCESS;
-        }
-    }
+    serverListenLoop(serverFD);
 
     close(serverFD);
     return EXIT_SUCCESS;
@@ -83,4 +62,30 @@ int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd) 
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
+}
+
+void serverListenLoop(int serverFD){
+    struct sockaddr_in clientSocket;
+    int clientSocketSize = sizeof(clientSocket);
+    int clientFD;
+
+    while ((clientFD = accept(serverFD, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
+        printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
+
+        int pid = fork();
+        if (pid == 0) {
+            while (recv(clientFD, bufferMessage, 255, 0) > 0) {
+
+                if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
+                    break;
+                }
+                printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
+                memset(bufferMessage, 0, 256);
+            }
+            printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
+            close(serverFD);
+            close(clientFD);
+            return;
+        }
+    }
 }
