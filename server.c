@@ -11,10 +11,10 @@
 #include <pthread.h>
 #include <ctype.h>
 
-struct arg_struct {
+typedef struct arg_struct {
     int *socketfd;
     const char *ipaddress;
-};
+}arg_struct;
 
 const char *server_exit_command = "/exit";
 const char *server_pseudo_command = "/pseudo";
