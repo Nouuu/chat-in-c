@@ -9,11 +9,16 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <ctype.h>
 
 struct arg_struct {
     int *socketfd;
     const char *ipaddress;
 };
+
+const char *server_exit_command = "/exit";
+const char *server_pseudo_command = "/pseudo";
+const int server_pseudo_max_size = 10;
 
 int serverEngine(int port);
 
@@ -24,6 +29,8 @@ void serverListenLoop(int serverFD);
 void *clientConnectionHandler(void *args);
 
 void clientListenLoop(int clientFD, char *bufferMessage, char *ip);
+
+char *getPseudo(const char *bufferMessage, const char *ip);
 
 int main(int arg, char **argv) {
     if (arg != 2) {
@@ -110,12 +117,41 @@ void *clientConnectionHandler(void *args) {
 }
 
 void clientListenLoop(int clientFD, char *bufferMessage, char *ip) {
+    char *pseudo = NULL;
     while (recv(clientFD, bufferMessage, 255, 0) > 0) {
 
         if (strstr(bufferMessage, server_exit_command) == bufferMessage) {
             break;
+        } else if (strstr(bufferMessage, server_pseudo_command) == bufferMessage) {
+            pseudo = getPseudo(bufferMessage, ip);
+        } else {
+            if (!pseudo) {
+                printf("New message from %s : %s\n", ip, bufferMessage);
+            } else {
+                printf("New message from %s (%s) : %s\n", pseudo, ip, bufferMessage);
+            }
         }
-        printf("New message from %s : %s\n", ip, bufferMessage);
         memset(bufferMessage, 0, 256);
     }
+}
+
+char *getPseudo(const char *bufferMessage, const char *ip) {
+    if (!isspace(bufferMessage[strlen(server_pseudo_command)])) {
+        printf("Command error (%s): no space between command and arguments\n", ip);
+        return NULL;
+    }
+    int command_size = strlen(server_pseudo_command);
+    int size = 0;
+    while (!isspace(bufferMessage[command_size + 1 + size])
+           && bufferMessage[command_size + 1 + size] != '\0'
+           && size <= server_pseudo_max_size) {
+        size++;
+    }
+    if (size > server_pseudo_max_size) {
+        printf("Command error (%s): pseudo size above %d characters\n", ip, server_pseudo_max_size);
+        return NULL;
+    }
+    char *pseudo = strndup(bufferMessage + command_size + 1, size);
+    printf("(%s) registered as '%s'\n", ip, pseudo);
+    return pseudo;
 }
