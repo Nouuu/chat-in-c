@@ -10,13 +10,18 @@
 #include <unistd.h>
 #include <pthread.h>
 
+struct arg_struct {
+    int *socketfd;
+    const char *ipaddress;
+};
+
 int serverEngine(int port);
 
 int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd);
 
 void serverListenLoop(int serverFD);
 
-void clientConnection(struct sockaddr_in clientSocket, int clientFD);
+void *clientConnectionHandler(void *args);
 
 int main(int arg, char **argv) {
     if (arg != 2) {
@@ -69,30 +74,42 @@ void serverListenLoop(int serverFD) {
     struct sockaddr_in clientSocket;
     int clientSocketSize = sizeof(clientSocket);
     int clientFD;
+    pthread_t thread_id;
 
     while ((clientFD = accept(serverFD, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
-        int pid = fork();
-        if (pid == 0) {
-            clientConnection(clientSocket, clientFD);
+        struct arg_struct args;
+        args.socketfd = &clientFD;
+        args.ipaddress = inet_ntoa(clientSocket.sin_addr);
+
+        if (pthread_create(&thread_id, NULL, clientConnectionHandler, (void *) &args) < 0) {
+
+            perror("could not create thread, exit program");
+            return;
         }
     }
 }
 
-void clientConnection(struct sockaddr_in clientSocket, int clientFD) {
+void *clientConnectionHandler(void *args) {
+    struct arg_struct arguments = *(struct arg_struct *) args;
+
+    char *ip = strdup(arguments.ipaddress);
+    int clientFD = *(int *) arguments.socketfd;
     char *bufferMessage = calloc(256, sizeof(char));
 
-    printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
+    printf("Connected !\nClient IP is %s\n", ip);
 
     while (recv(clientFD, bufferMessage, 255, 0) > 0) {
 
         if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
             break;
         }
-        printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
+        printf("New message from %s : %s\n", ip, bufferMessage);
         memset(bufferMessage, 0, 256);
     }
 
-    printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
+    printf("%s leaving\n", ip);
     close(clientFD);
-
+    free(ip);
+    free(bufferMessage);
+    pthread_exit(NULL);
 }
