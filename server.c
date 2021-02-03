@@ -8,14 +8,15 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
-
-char bufferMessage[256] = {0};
+#include <pthread.h>
 
 int serverEngine(int port);
 
 int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd);
 
 void serverListenLoop(int serverFD);
+
+void clientConnection(struct sockaddr_in clientSocket, int clientFD);
 
 int main(int arg, char **argv) {
     if (arg != 2) {
@@ -64,28 +65,34 @@ int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd) 
     return EXIT_SUCCESS;
 }
 
-void serverListenLoop(int serverFD){
+void serverListenLoop(int serverFD) {
     struct sockaddr_in clientSocket;
     int clientSocketSize = sizeof(clientSocket);
     int clientFD;
 
     while ((clientFD = accept(serverFD, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
-        printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
-
         int pid = fork();
         if (pid == 0) {
-            while (recv(clientFD, bufferMessage, 255, 0) > 0) {
-
-                if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
-                    break;
-                }
-                printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
-                memset(bufferMessage, 0, 256);
-            }
-            printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
-            close(serverFD);
-            close(clientFD);
-            return;
+            clientConnection(clientSocket, clientFD);
         }
     }
+}
+
+void clientConnection(struct sockaddr_in clientSocket, int clientFD) {
+    char *bufferMessage = calloc(256, sizeof(char));
+
+    printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
+
+    while (recv(clientFD, bufferMessage, 255, 0) > 0) {
+
+        if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
+            break;
+        }
+        printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
+        memset(bufferMessage, 0, 256);
+    }
+
+    printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
+    close(clientFD);
+
 }
