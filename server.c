@@ -81,7 +81,7 @@ void serverListenLoop(int serverFD) {
         args.socketfd = &clientFD;
         args.ipaddress = inet_ntoa(clientSocket.sin_addr);
 
-        if (pthread_create(&thread_id, NULL, clientConnectionHandler, (void *) &args) < 0) {
+        if (pthread_create(&thread_id, NULL, clientConnectionHandler, (void *) &args) != 0) {
 
             perror("could not create thread, exit program");
             return;
