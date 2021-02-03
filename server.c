@@ -9,20 +9,29 @@
 #include <string.h>
 #include <unistd.h>
 
-struct sockaddr_in serverSocket;
 struct sockaddr_in clientSocket;
 int clientSocketSize;
 int socketfd;
 int clientfd;
-int port;
 char bufferMessage[256] = {0};
 
+int serverEngine(int port);
 int main(int arg, char **argv) {
     if (arg != 2) {
         printf("You need to provide port n°\n");
         return EXIT_FAILURE;
     }
-    port = atoi(argv[1]);
+    int port = atoi(argv[1]);
+
+    if(port == 0) {
+        return EXIT_FAILURE;
+    }
+
+    return serverEngine(port);
+}
+
+int serverEngine(int port) {
+    struct sockaddr_in serverSocket;
     serverSocket.sin_family = AF_INET;
     serverSocket.sin_port = htons(port);
     serverSocket.sin_addr.s_addr = INADDR_ANY;
