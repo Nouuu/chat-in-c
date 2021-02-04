@@ -88,9 +88,15 @@ void runServer(Server *server){
 }
 
 void closeServer(Server *server){
-    for(int i = 0; i<server->size; i++){
-        close(server->clients[i]->clientSocketFd);
-        pthread_join(server->clients[i]->pthread, NULL);
+    printf("closing server with %lu connection left\n", server->size);
+    while(server->size){
+        server->clients[0]->status = 0;
+        printf("closing client connection %s(%s)\n", server->clients[0]->name, inet_ntoa(server->clients[0]->clientSocketAddr.sin_addr));
+        shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR);
+        close(server->clients[0]->clientSocketFd);
+        printf("closing client thread\n");
+        pthread_join(server->clients[0]->pthread, NULL);
+        printf("closing client success\n");
     }
     close(server->serverSocketFd);
 }

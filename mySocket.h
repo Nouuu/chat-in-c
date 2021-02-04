@@ -13,6 +13,7 @@
 #ifdef WIN32 /* si vous êtes sous Windows */
 
 #include <winsock2.h>
+#define SHUT_RDWR 2
 #define socklen_t unsigned int
 
 #elif defined (linux) /* si vous êtes sous Linux */
