@@ -5,7 +5,7 @@ Work with socket in C OMG
 ## Client
 
 Command line :<br>
-`./client <ip-addr> <port>`
+`./serverClient <ip-addr> <port>`
 
 ## Server
 
