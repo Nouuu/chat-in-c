@@ -4,6 +4,15 @@
 
 #include "server.h"
 
+ServerClient *getServerClient(Server *server, char *name){
+    for(int i = 0; i<server->size; i++){
+        if(server->clients[i]->name != NULL && !strcmp(server->clients[i]->name, name) ){
+            return server->clients[i];
+        }
+    }
+    return NULL;
+}
+
 void removeClient(Server *server, struct ServerClient *client){
 
     if(server == NULL || client == NULL){
@@ -92,10 +101,16 @@ void closeServer(Server *server){
     while(server->size){
         server->clients[0]->status = 0;
         printf("closing client connection %s(%s)\n", server->clients[0]->name, inet_ntoa(server->clients[0]->clientSocketAddr.sin_addr));
-        shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR);
-        close(server->clients[0]->clientSocketFd);
+        if( shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR) != 0){
+            displayLastSocketError("error shutdown client");
+        }
+        if( close(server->clients[0]->clientSocketFd) != 0){
+            displayLastSocketError("error close client");
+        }
         printf("closing client thread\n");
-        pthread_join(server->clients[0]->pthread, NULL);
+        if( pthread_join(server->clients[0]->pthread, NULL) != 0){
+            displayLastSocketError("error pthread_join client");
+        }
         printf("closing client success\n");
     }
     close(server->serverSocketFd);

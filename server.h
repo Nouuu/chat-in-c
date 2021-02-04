@@ -25,6 +25,8 @@ struct server{
     ServerClient **clients;
 };
 
+ServerClient *getServerClient(Server *server, char *name);
+
 void removeClient(Server *server, struct ServerClient *client);
 
 #endif //CHAT_IN_C_SERVER_H
