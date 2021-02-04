@@ -8,60 +8,109 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include <unistd.h>
+#include <pthread.h>
 
-struct sockaddr_in serverSocket;
-struct sockaddr_in clientSocket;
-int clientSocketSize;
-int socketfd;
-int clientfd;
-int port;
-char bufferMessage[256] = {0};
+typedef struct arg_struct {
+    char *ipaddress;
+    int *clientSocketFD;
+} arg_struct;
+
+int serverEngine(int port);
+
+int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd);
+
+void serverListenLoop(int serverSocketFD);
+
+void *clientHandler(void *args);
 
 int main(int arg, char **argv) {
     if (arg != 2) {
         printf("You need to provide port n°\n");
         return EXIT_FAILURE;
     }
-    port = atoi(argv[1]);
-    serverSocket.sin_family = AF_INET;
-    serverSocket.sin_port = htons(port);
-    serverSocket.sin_addr.s_addr = INADDR_ANY;
+    int port = atoi(argv[1]);
 
-    socketfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (port == 0) {
+        return EXIT_FAILURE;
+    }
 
-    int result = bind(socketfd, (struct sockaddr *) &serverSocket, sizeof(serverSocket));
+    return serverEngine(port);
+}
+
+int serverEngine(int port) {
+    struct sockaddr_in serverSocket;
+    int serverSocketFD;
+
+    if (initServerSocket(port, &serverSocket, &serverSocketFD) == EXIT_FAILURE) {
+        return EXIT_FAILURE;
+    }
+
+    listen(serverSocketFD, 40);
+
+
+    printf("Server on and listen on %d port\n", port);
+
+    serverListenLoop(serverSocketFD);
+
+    close(serverSocketFD);
+    return EXIT_SUCCESS;
+}
+
+int initServerSocket(int port, struct sockaddr_in *serverSocket, int *socketfd) {
+    serverSocket->sin_family = AF_INET;
+    serverSocket->sin_port = htons(port);
+    serverSocket->sin_addr.s_addr = INADDR_ANY;
+
+    *socketfd = socket(AF_INET, SOCK_STREAM, 0);
+
+    int result = bind(*socketfd, (struct sockaddr *) serverSocket, sizeof(*serverSocket));
     if (result == -1) {
         printf("Error when bind socket!\n");
         perror("");
         return EXIT_FAILURE;
     }
+    return EXIT_SUCCESS;
+}
 
-    listen(socketfd, 40);
-
-    printf("Server on and listen on %d port\n", port);
-
+void serverListenLoop(int serverSocketFD) {
+    struct sockaddr_in clientSocket;
+    int clientSocketFD;
+    int clientSocketSize;
     clientSocketSize = sizeof(clientSocket);
+    pthread_t threadId;
 
-    while ((clientfd = accept(socketfd, (struct sockaddr *) &clientSocket, (socklen_t *) &clientSocketSize))) {
-        printf("Connected !\nClient IP is %s\n", inet_ntoa(clientSocket.sin_addr));
+    while ((clientSocketFD = accept(serverSocketFD, (struct sockaddr *) &clientSocket,
+                                    (socklen_t *) &clientSocketSize))) {
+        arg_struct arguments;
+        arguments.clientSocketFD = &clientSocketFD;
+        arguments.ipaddress = inet_ntoa(clientSocket.sin_addr);
 
-        int pid = fork();
-        if (pid == 0) {
-            while (recv(clientfd, bufferMessage, 255, 0) > 0) {
-
-                if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
-                    break;
-                }
-                printf("New message from %s : %s\n", inet_ntoa(clientSocket.sin_addr), bufferMessage);
-                memset(bufferMessage, 0, 256);
-            }
-            printf("%s leaving\n", inet_ntoa(clientSocket.sin_addr));
-            close(socketfd);
-            close(clientfd);
-            return EXIT_SUCCESS;
+        if (pthread_create(&threadId, NULL, clientHandler, (void *) &arguments) != 0) {
+            perror("could not create thread\n");
+            return;
         }
     }
+}
 
-    close(socketfd);
-    return EXIT_SUCCESS;
+void *clientHandler(void *args) {
+    printf("Connected\n");
+    char bufferMessage[256] = {0};
+    arg_struct *arguments = (arg_struct *) args;
+
+    const char *ip = arguments->ipaddress;
+    int clientFD = *arguments->clientSocketFD;
+
+    printf("Client connected IP is %s\n", ip);
+    while (recv(clientFD, bufferMessage, 255, 0) > 0) {
+
+        if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
+            break;
+        }
+        printf("New message from %s : %s\n", ip, bufferMessage);
+        memset(bufferMessage, 0, 256);
+    }
+    printf("%s leaving\n", ip);
+
+    close(clientFD);
+    pthread_exit(NULL);
 }
