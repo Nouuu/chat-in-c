@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include "ServerClientCommon.h"
 
 typedef struct ServerClient ServerClient;
 

@@ -8,7 +8,7 @@
 
 int getClientPseudo(ServerClient *client){
     ServerClient *res;
-    char code = 0;
+    char code = CLIENT_PSEUDO_ALREADY_USE;
     char name[256] = {0};
     printf("waiting for client name %s\n", inet_ntoa(client->clientSocketAddr.sin_addr));
 
@@ -27,7 +27,7 @@ int getClientPseudo(ServerClient *client){
         }
     }while(res != NULL);
 
-    code = 1;
+    code = CLIENT_PSEUDO_VALIDATED;
     if(send(client->clientSocketFd, &code, 1, 0) < 0)
     {
         displayLastSocketError("Error on send() for the client name");
@@ -40,21 +40,22 @@ int getClientPseudo(ServerClient *client){
 }
 
 void *runServerClient(void *arg){
+    int n;
     char bufferMessage[256] = {0};
     ServerClient *client = arg;
     memset(client->buffer, 0, 256);
 
     if( !getClientPseudo(client)){
 
-        while (recv(client->clientSocketFd, bufferMessage, 255, 0) > 0 && client->status == 1) {
-
-            if (!strcmp(bufferMessage, "0\r\n") || !strcmp(bufferMessage, "0\n")) {
-                break;
+        while (client->status == 1) {
+            n = recv(client->clientSocketFd, bufferMessage, 255, 0);
+            if(n <= 0){
+                client->status = 0;
+            }else{
+                printf("[%s]%s\n", client->name, bufferMessage);
+                memset(bufferMessage, 0, 256);
             }
-            printf("New message from %s : %s\n", client->name, bufferMessage);
-            memset(bufferMessage, 0, 256);
         }
-
     }else{
 
     }
