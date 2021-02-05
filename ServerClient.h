@@ -29,5 +29,6 @@ struct ServerClient{
 
 ServerClient *createServerClient(Server *server);
 void freeServerClient(ServerClient *client);
+void sendMsgClient(ServerClient *client , char *msg);
 
 #endif //CHAT_IN_C_SERVERCLIENT_H

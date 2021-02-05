@@ -13,6 +13,23 @@ ServerClient *getServerClient(Server *server, char *name){
     return NULL;
 }
 
+void sendToAll(Server *server, ServerClient  *client, char *msg){
+    size_t size;
+    char *buffer;
+
+    size = snprintf(NULL, 0, "[%s]: %s", client->name, msg);
+    buffer = calloc(size+1, sizeof(char ));
+    sprintf(buffer, "[%s]: %s", client->name, msg );
+
+    printf("send to all %s\n", buffer);
+    for(int i = 0; i<server->size; i++){
+        if( server->clients[i] != client && server->clients[i]->name != NULL) {
+            sendMsgClient(server->clients[i], buffer);
+        }
+    }
+    free(buffer);
+}
+
 void removeClient(Server *server, struct ServerClient *client){
 
     if(server == NULL || client == NULL){
@@ -115,7 +132,7 @@ void closeServer(Server *server){
         if( shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR) != 0){
             displayLastSocketError("error shutdown client: ");
         }
-        if( close(server->clients[0]->clientSocketFd) != 0){
+        if( CLOSE_SOCKET(server->clients[0]->clientSocketFd) != 0){
             displayLastSocketError("error close client: ");
         }
         printf("closing client thread\n");
@@ -138,7 +155,7 @@ void closeServer(Server *server){
         }
     }
 
-    close(server->serverSocketFd);
+    CLOSE_SOCKET(server->serverSocketFd);
     printf("server close success\n");
 }
 

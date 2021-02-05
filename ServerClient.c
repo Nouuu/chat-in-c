@@ -4,7 +4,13 @@
 
 
 #include "ServerClient.h"
-
+void sendMsgClient(ServerClient *client , char *msg){
+    if(send(client->clientSocketFd, msg, strlen(msg), 0) < 0)
+    {
+        displayLastSocketError("Error on send() for the client (%s)", inet_ntoa(client->clientSocketAddr.sin_addr));
+        return ;
+    }
+}
 
 int getClientPseudo(ServerClient *client){
     ServerClient *res;
@@ -47,22 +53,25 @@ void *runServerClient(void *arg){
 
     if( !getClientPseudo(client)){
 
+        sendToAll(client->server, client, "connected");
+
         while (client->status == 0) {
             n = recv(client->clientSocketFd, bufferMessage, 255, 0);
             if(n <= 0){
                 client->status = 1;
             }else{
                 printf("[%s]%s\n", client->name, bufferMessage);
+                sendToAll(client->server, client, bufferMessage);
                 memset(bufferMessage, 0, 256);
             }
         }
-    }else{
 
+        sendToAll(client->server, client, "disconnected");
+        shutdown(client->clientSocketFd, SHUT_RDWR);
+        CLOSE_SOCKET(client->clientSocketFd);
+        removeClient(client->server, client);
+        freeServerClient(client);
     }
-
-    close(client->clientSocketFd);
-    removeClient(client->server, client);
-    freeServerClient(client);
 
     return NULL;
 }

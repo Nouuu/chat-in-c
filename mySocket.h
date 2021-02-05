@@ -13,8 +13,10 @@
 #ifdef WIN32 /* si vous êtes sous Windows */
 
 #include <winsock2.h>
+
 #define SHUT_RDWR 2
 #define socklen_t unsigned int
+#define CLOSE_SOCKET closesocket
 
 #elif defined (linux) /* si vous êtes sous Linux */
 
@@ -24,6 +26,7 @@
 #include <arpa/inet.h>
 
 typedef unsigned long long SOCKET;
+#define CLOSE_SOCKET close
 
 #else /* sinon vous êtes sur une plateforme non supportée */
 #error not defined for this platform

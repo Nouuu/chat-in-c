@@ -11,6 +11,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <errno.h>
+#include <signal.h>
 #include "mySocket.h"
 #include "ServerClientCommon.h"
 

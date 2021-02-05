@@ -73,7 +73,7 @@ void displayLastSocketError(char *msg, ...){
     va_end(args);
 
     #ifdef WIN32 /* si vous êtes sous Windows */
-        fprintf(stderr,"%d",  WSAGetLastError());
+        fprintf(stderr,"%d\n",  WSAGetLastError());
     #elif defined (linux) /* si vous êtes sous Linux */
         perror("");
     #endif
