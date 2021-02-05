@@ -21,7 +21,7 @@ int getClientPseudo(ServerClient *client){
         if(res != NULL){
             if(send(client->clientSocketFd, &code, 1, 0) < 0)
             {
-                displayLastSocketError("Error on send() for the client name");
+                displayLastSocketError("Error on send() for the client name (%S)", inet_ntoa(client->clientSocketAddr.sin_addr));
                 return 2;
             }
         }
@@ -30,7 +30,7 @@ int getClientPseudo(ServerClient *client){
     code = CLIENT_PSEUDO_VALIDATED;
     if(send(client->clientSocketFd, &code, 1, 0) < 0)
     {
-        displayLastSocketError("Error on send() for the client name");
+        displayLastSocketError("Error on send() for the client name (%s)", inet_ntoa(client->clientSocketAddr.sin_addr));
         return 2;
     }
     client->name = strdup(name);
@@ -47,10 +47,10 @@ void *runServerClient(void *arg){
 
     if( !getClientPseudo(client)){
 
-        while (client->status == 1) {
+        while (client->status == 0) {
             n = recv(client->clientSocketFd, bufferMessage, 255, 0);
             if(n <= 0){
-                client->status = 0;
+                client->status = 1;
             }else{
                 printf("[%s]%s\n", client->name, bufferMessage);
                 memset(bufferMessage, 0, 256);
@@ -69,19 +69,20 @@ void *runServerClient(void *arg){
 
 
 ServerClient *createServerClient(Server *server){
-    char bufferMessage[256] = {0};
     int pthreadError;
     ServerClient *serverClient = calloc(1, sizeof(ServerClient));
     serverClient->clientSocketFd = accept(server->serverSocketFd, (struct sockaddr *) &(serverClient->clientSocketAddr), &server->clientSocketSize);
     serverClient->server = server;
 
     if(serverClient->clientSocketFd == -1){
-        displayLastSocketError("Error on accept()");
+        if(errno != EINVAL) {
+            displayLastSocketError("Error createServerClient on accept (%llu): ", serverClient->clientSocketFd);
+        }
         free(serverClient);
         return  NULL;
     }
 
-    serverClient->status = 1;
+    serverClient->status = 0;
 
     pthreadError = pthread_create(&(serverClient->pthread), NULL, &runServerClient, serverClient);
     if(pthreadError != 0){

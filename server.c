@@ -52,7 +52,7 @@ Server* CreateServer(int port, int capacity){
     server->clients = calloc(capacity, sizeof( ServerClient *) );
 
     server->clientSocketSize = sizeof( struct  sockaddr_in);
-    server->status = 1;
+    server->status = 0;
     server->size = 0;
     printf("Server on and listen on %d port\n", port);
     return server;
@@ -70,24 +70,22 @@ void ServerAddClient(Server *server,  ServerClient *serverClient){
     printf("client connected with ip: %s \n%lu/%lu connection\n",inet_ntoa(serverClient->clientSocketAddr.sin_addr), server->size, server->capacityMax);
 }
 
-void runServer(Server *server){
+void *runServer(void *args){
     fd_set fdSet;
+    Server *server = args;
     int fdMax = server->serverSocketFd;;
 
-    while(server->status == 1){
+    while(server->status == 0){
+
         FD_ZERO(&fdSet);
-        FD_SET(STDIN_FILENO, &fdSet);
         FD_SET(server->serverSocketFd, &fdSet);
 
         if(select(fdMax + 1, &fdSet, NULL, NULL, NULL) == -1){
-            perror("select()");
+            perror("ERROR runServer select(): ");
             exit(errno);
         }
 
-        if(FD_ISSET(STDIN_FILENO, &fdSet)){
-            /* stop process when type on keyboard */
-            server->status = 0;
-        }else if(FD_ISSET(server->serverSocketFd, &fdSet)) {
+        if(FD_ISSET(server->serverSocketFd, &fdSet)) {
             ServerClient *serverClient = createServerClient(server);
             ServerAddClient(server, serverClient);
         }
@@ -97,23 +95,94 @@ void runServer(Server *server){
 }
 
 void closeServer(Server *server){
+    int pthreadError;
+
+    if(server->status == 0){
+        server->status = 1;
+    }else{
+        return;
+    }
+
     printf("closing server with %lu connection left\n", server->size);
+
+    if( shutdown(server->serverSocketFd, SHUT_RDWR) != 0){
+        displayLastSocketError("error shutdown server: ");
+    }
+
     while(server->size){
         server->clients[0]->status = 0;
         printf("closing client connection %s(%s)\n", server->clients[0]->name, inet_ntoa(server->clients[0]->clientSocketAddr.sin_addr));
         if( shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR) != 0){
-            displayLastSocketError("error shutdown client");
+            displayLastSocketError("error shutdown client: ");
         }
         if( close(server->clients[0]->clientSocketFd) != 0){
-            displayLastSocketError("error close client");
+            displayLastSocketError("error close client: ");
         }
         printf("closing client thread\n");
         if( pthread_join(server->clients[0]->pthread, NULL) != 0){
-            displayLastSocketError("error pthread_join client");
+            displayLastSocketError("error pthread_join client: ");
         }
         printf("closing client success\n");
     }
+
+    pthreadError = pthread_join(server->serverThread, NULL);
+    if(pthreadError != 0){
+        perror("error closing serverThread: ");
+    }
+
+    if(server->commandThread != pthread_self()){
+        printf("closing server command thread\n");
+        pthreadError = pthread_join(server->commandThread, NULL);
+        if(pthreadError != 0){
+            perror("error closing command Thread: ");
+        }
+    }
+
     close(server->serverSocketFd);
+    printf("server close success\n");
+}
+
+void *runServerCommand(void *args){
+    Server *server = args;
+    char *tmp;
+
+    while (server->status == 0) {
+        memset(server->commandBuffer, 0, 256);
+        fgets(server->commandBuffer, 255, stdin);
+
+        tmp = strpbrk(server->commandBuffer, "\r\n");
+        *tmp = '\0';
+
+        if(strcmp(server->commandBuffer, "\\exit") == 0){
+            closeServer(server);
+        }else{
+            printf("unknown command \"%s\"\n", server->commandBuffer);
+        }
+    }
+
+}
+
+void startServer(Server *server){
+    int pthreadError;
+
+    pthreadError = pthread_create(&(server->commandThread), NULL, &runServerCommand, server);
+    if(pthreadError != 0){
+        perror("pthread failed server command: ");
+        return ;
+    }
+
+    pthreadError = pthread_create(&(server->serverThread), NULL, &runServer, server);
+    if(pthreadError != 0){
+        perror("pthread failed server command: ");
+        return ;
+    }
+
+}
+
+void waitForServer(Server *server){
+    if( pthread_join(server->commandThread, NULL) != 0){
+        perror("error waiting for server: ");
+    }
 }
 
 int main(int arg, char **argv) {
@@ -132,7 +201,8 @@ int main(int arg, char **argv) {
     server = CreateServer(port, 40);
 
     if(server != NULL){
-        runServer(server);
+        startServer(server);
+        waitForServer(server);
         closeServer(server);
     }
 

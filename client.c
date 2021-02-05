@@ -102,7 +102,7 @@ void *runSendingClient(void *args){
         if(strcmp(client->sendingBuffer, "\\exit") == 0){
             closeClient(client);
         }else{
-            int n = send(client->socket_fd, client->sendingBuffer, 256, 0);
+            int n = send(client->socket_fd, client->sendingBuffer, strlen(client->sendingBuffer), 0);
             if (n == 0) {
                 printf("Server disconnected !\n");
                 client->status = 1;

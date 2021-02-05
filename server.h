@@ -23,10 +23,12 @@ struct server{
     int status;
     size_t capacityMax, size;
     ServerClient **clients;
+    pthread_t serverThread, commandThread;
+    char commandBuffer[256];
 };
 
 ServerClient *getServerClient(Server *server, char *name);
 
-void removeClient(Server *server, struct ServerClient *client);
+void removeClient(Server *server, ServerClient *client);
 
 #endif //CHAT_IN_C_SERVER_H
