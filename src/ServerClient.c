@@ -57,6 +57,7 @@ void *runServerClient(void *arg){
 
         while (client->status == 0) {
             n = recv(client->clientSocketFd, bufferMessage, 255, 0);
+            printf("ServerClient %d \"%s\"\n", n, bufferMessage);
             if(n <= 0){
                 client->status = 1;
             }else{
@@ -65,10 +66,7 @@ void *runServerClient(void *arg){
                 memset(bufferMessage, 0, 256);
             }
         }
-
-        sendToAll(client->server, client, "disconnected");
-        shutdown(client->clientSocketFd, SHUT_RDWR);
-        CLOSE_SOCKET(client->clientSocketFd);
+        printf("exit ServerCLient\n");
         removeClient(client->server, client);
         freeServerClient(client);
     }
@@ -77,21 +75,12 @@ void *runServerClient(void *arg){
 }
 
 
-ServerClient *createServerClient(Server *server){
+ServerClient *createServerClient(Server *server, SOCKET socketFd, struct sockaddr_in clientSocketAddr ){
     int pthreadError;
-    socklen_t size = clientSocketSize;
     ServerClient *serverClient = calloc(1, sizeof(ServerClient));
-    serverClient->clientSocketFd = accept(server->serverSocketFd, (struct sockaddr *) &(serverClient->clientSocketAddr), &size);
+    serverClient->clientSocketFd = socketFd;
+    serverClient->clientSocketAddr = clientSocketAddr;
     serverClient->server = server;
-
-    if(serverClient->clientSocketFd == -1){
-        if(errno != EINVAL) {
-            displayLastSocketError("Error createServerClient on accept (%llu): ", serverClient->clientSocketFd);
-        }
-        free(serverClient);
-        return  NULL;
-    }
-
     serverClient->status = 0;
 
     pthreadError = pthread_create(&(serverClient->pthread), NULL, &runServerClient, serverClient);
@@ -101,7 +90,6 @@ ServerClient *createServerClient(Server *server){
         return  NULL;
     }
 
-   // pthread_join(serverClient->pthread, NULL);
     return serverClient;
 }
 

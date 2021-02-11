@@ -40,6 +40,8 @@ SOCKET createClientSocket(int domain, int type, int protocol, int port, const ch
     }else if (connect(socket_fd, (struct sockaddr *) &sockaddrIn, sizeof(sockaddrIn)) == -1) {
         displayLastSocketError("Failed to connect %s:%d : ", address, port);
         socket_fd = -1;
+    }else{
+        printf("connection successful with %s:%d\n", address, port);
     }
 
     return socket_fd;
@@ -54,6 +56,14 @@ SOCKET createServerSocket(int domain, int type, int protocol, int port){
     sockaddrIn.sin_addr.s_addr = INADDR_ANY;
 
     socket_fd = socket(domain, type, protocol);
+
+    //https://stackoverflow.com/questions/2084830/kill-thread-in-pthread-library
+    #ifdef WIN32 /* si vous êtes sous Windows */
+        const char true = 1;
+    #elif defined (linux) /* si vous êtes sous Linux */
+        int true = 1;
+    #endif
+    setsockopt(socket_fd,SOL_SOCKET,SO_REUSEADDR,&true,sizeof(int));
 
     if(socket_fd == -1){
         displayLastSocketError("Failed to create the server socket %d %d %d : ", domain, type, protocol);

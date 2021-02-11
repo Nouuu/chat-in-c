@@ -27,7 +27,8 @@ struct ServerClient{
     Server *server;
 };
 
-ServerClient *createServerClient(Server *server);
+ServerClient *createServerClient(Server *server, SOCKET socketFd, struct sockaddr_in clientSocketAddr );
+
 void freeServerClient(ServerClient *client);
 void sendMsgClient(ServerClient *client , char *msg);
 

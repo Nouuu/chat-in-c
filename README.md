@@ -6,7 +6,8 @@ Work with socket in C OMG
 
 Command line :<br>
 `./serverClient <ip-addr> <port>`
-
+<br>
+`./serverClient <ip-addr> <port> <name>`
 ## Server
 
 Command line :<br>

@@ -2,7 +2,6 @@
 // Created by Unknow on 14/01/2021.
 //
 
-
 #include "client.h"
 
 void sendServerPseudo(Client  *client, char *name){
@@ -71,7 +70,7 @@ void closeClient(Client *client){
     if( client->receivingThread != pthread_self() && pthread_join(client->receivingThread, NULL) != 0){
         displayLastSocketError("error pthread_join receiving client: ");
     }
-    if( client->sendingThread != pthread_self() && pthread_join(client->sendingThread, NULL) != 0){
+    if( client->sendingThread != pthread_self() && pthread_cancel(client->sendingThread) != 0){
         displayLastSocketError("error pthread_join sending client: ");
     }
     printf("closing client success\n");
@@ -103,14 +102,14 @@ void *runSendingClient(void *args){
         memset(client->sendingBuffer, 0, 256);
         fgets(client->sendingBuffer, 255, stdin);
 
-        size = strlen(client->sendingBuffer);\
+        size = strlen(client->sendingBuffer);
         if(size>1) {
             tmp = strpbrk(client->sendingBuffer, "\r\n");
             *tmp = '\0';
 
-            if (strcmp(client->sendingBuffer, "\\exit") == 0) {
+            if(strcmp(client->sendingBuffer, "\\exit") == 0){
                 closeClient(client);
-            } else {
+            }else{
                 int n = send(client->socket_fd, client->sendingBuffer, size, 0);
                 if (n == 0) {
                     printf("Server disconnected !\n");
@@ -133,7 +132,7 @@ void startClient(Client *client){
         return;
     }
 
-    pthreadError = pthread_create(&(client->sendingThread), NULL, &runSendingClient, client);
+   // pthreadError = pthread_create(&(client->sendingThread), NULL, &runSendingClient, client);
     if(pthreadError != 0){
         perror("Error creating the sending thread: ");
         return;
@@ -159,11 +158,12 @@ int main(int argc, char **argv) {
     }
     if(client != NULL){
         startClient(client);
-    }
-    pthread_join(client->sendingThread, NULL);
-    pthread_join(client->receivingThread, NULL);
 
-    closeClient(client);
+        pthread_join(client->sendingThread, NULL);
+        pthread_join(client->receivingThread, NULL);
+
+        closeClient(client);
+    }
 
     endSocket();
     return EXIT_SUCCESS;

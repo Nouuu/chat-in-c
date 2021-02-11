@@ -19,6 +19,7 @@ typedef struct server Server;
 #include "ServerClient.h"
 
 struct server{
+    pthread_mutex_t mutexClientList;
     SOCKET serverSocketFd;
     int status;
     size_t capacityMax, size;
