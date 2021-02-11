@@ -5,3 +5,4 @@ cmake-build-debug/
 
 cmake-build-debug-wsl/
 /cmake-build-debug-mingw-64/
+/cmake-build-debug-mingw/
