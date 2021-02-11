@@ -14,12 +14,12 @@
 #include "mySocket.h"
 
 typedef struct server Server;
+#define clientSocketSize (socklen_t)sizeof( struct  sockaddr_in)
 
 #include "ServerClient.h"
 
 struct server{
     SOCKET serverSocketFd;
-    unsigned int clientSocketSize;
     int status;
     size_t capacityMax, size;
     ServerClient **clients;

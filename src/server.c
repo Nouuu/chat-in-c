@@ -68,7 +68,6 @@ Server* CreateServer(int port, int capacity){
 
     server->clients = calloc(capacity, sizeof( ServerClient *) );
 
-    server->clientSocketSize = sizeof( struct  sockaddr_in);
     server->status = 0;
     server->size = 0;
     printf("Server on and listen on %d port\n", port);

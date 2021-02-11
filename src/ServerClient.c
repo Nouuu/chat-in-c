@@ -79,8 +79,9 @@ void *runServerClient(void *arg){
 
 ServerClient *createServerClient(Server *server){
     int pthreadError;
+    socklen_t size = clientSocketSize;
     ServerClient *serverClient = calloc(1, sizeof(ServerClient));
-    serverClient->clientSocketFd = accept(server->serverSocketFd, (struct sockaddr *) &(serverClient->clientSocketAddr), &server->clientSocketSize);
+    serverClient->clientSocketFd = accept(server->serverSocketFd, (struct sockaddr *) &(serverClient->clientSocketAddr), &size);
     serverClient->server = server;
 
     if(serverClient->clientSocketFd == -1){
