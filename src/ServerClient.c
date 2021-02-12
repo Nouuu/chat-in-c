@@ -53,7 +53,7 @@ void *runServerClient(void *arg){
 
     if( !getClientPseudo(client)){
 
-        sendToAll(client->server, client, "connected");
+        sendToAllFromClient(client->server, client, "connected");
 
         while (client->status == 0) {
             n = recv(client->clientSocketFd, bufferMessage, 255, 0);
@@ -62,7 +62,7 @@ void *runServerClient(void *arg){
                 client->status = 1;
             }else{
                 printf("[%s]%s\n", client->name, bufferMessage);
-                sendToAll(client->server, client, bufferMessage);
+                sendToAllFromClient(client->server, client, bufferMessage);
                 memset(bufferMessage, 0, 256);
             }
         }

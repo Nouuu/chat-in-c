@@ -13,14 +13,14 @@ ServerClient *getServerClient(Server *server, char *name){
     return NULL;
 }
 
-void sendToAll(Server *server, ServerClient  *client, char *msg){
+void sendToAll(Server *server, char  *senderName, char *msg) {
     size_t size;
     char *buffer;
     int mutexError;
 
-    size = snprintf(NULL, 0, "[%s]: %s", client->name, msg);
+    size = snprintf(NULL, 0, "[%s]: %s", senderName, msg);
     buffer = calloc(size+1, sizeof(char ));
-    sprintf(buffer, "[%s]: %s", client->name, msg );
+    sprintf(buffer, "[%s]: %s", senderName, msg );
 
     mutexError = pthread_mutex_lock(&server->mutexClientList);
     if(mutexError != 0){
@@ -28,7 +28,7 @@ void sendToAll(Server *server, ServerClient  *client, char *msg){
     }
 
     for(int i = 0; i<server->size; i++){
-        if( server->clients[i] != client && server->clients[i]->name != NULL) {
+        if( server->clients[i]->name != NULL && strcmp(senderName, server->clients[i]->name) != 0) {
             sendMsgClient(server->clients[i], buffer);
         }
     }
@@ -38,6 +38,15 @@ void sendToAll(Server *server, ServerClient  *client, char *msg){
         fprintf(stderr, "sendToAll mutex (%p) unlock error: %d \n", &server->mutexClientList, mutexError);
     }
     free(buffer);
+
+}
+
+void sendToAllFromClient(Server *server, ServerClient  *client, char *msg){
+    sendToAll(server, client->name, msg);
+}
+
+void sendToAllFromServer(Server *server, char *msg){
+    sendToAll(server, "Server", msg);
 }
 
 void removeClient(Server *server, struct ServerClient *client){
@@ -67,7 +76,7 @@ void removeClient(Server *server, struct ServerClient *client){
         fprintf(stderr, "removeClient mutex (%p) unlock error: %d \n", &server->mutexClientList, mutexError);
     }
 
-    sendToAll(server, client, "disconnected");
+    sendToAllFromClient(server, client, "disconnected");
     shutdown(client->clientSocketFd, SHUT_RDWR);
     CLOSE_SOCKET(client->clientSocketFd);
     printf("client \"%s\" (%s) left\n%lu/%lu connection\n", client->name, inet_ntoa(client->clientSocketAddr.sin_addr), server->size, server->capacityMax );
@@ -101,12 +110,12 @@ Server* CreateServer(int port, int capacity){
 
 void ServerAddClient(Server *server,  ServerClient *serverClient){
     int mutexError;
-    printf("ServerAddClient test\n");
+
     mutexError = pthread_mutex_lock(&server->mutexClientList);
     if(mutexError != 0){
         fprintf(stderr, "ServerAddClient mutex (%p) lock error: %d \n", &server->mutexClientList, mutexError);
     }
-    printf("ServerAddClient test2\n");
+
 
     if(server == NULL || serverClient == NULL || server->size == server->capacityMax){
         return;
@@ -155,6 +164,7 @@ void closeServer(Server *server){
     }
 
     printf("closing server with %lu connection left\n", server->size);
+    sendToAllFromServer(server, "The Server is closing");
 
     if( shutdown(server->serverSocketFd, SHUT_RDWR) != 0){
         displayLastSocketError("error shutdown server: ");

@@ -31,6 +31,6 @@ struct server{
 ServerClient *getServerClient(Server *server, char *name);
 
 void removeClient(Server *server, ServerClient *client);
-void sendToAll(Server *server, ServerClient  *client, char *msg);
+void sendToAllFromClient(Server *server, ServerClient  *client, char *msg);
 
 #endif //CHAT_IN_C_SERVER_H
