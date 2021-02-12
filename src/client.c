@@ -132,7 +132,7 @@ void startClient(Client *client){
         return;
     }
 
-   // pthreadError = pthread_create(&(client->sendingThread), NULL, &runSendingClient, client);
+    pthreadError = pthread_create(&(client->sendingThread), NULL, &runSendingClient, client);
     if(pthreadError != 0){
         perror("Error creating the sending thread: ");
         return;

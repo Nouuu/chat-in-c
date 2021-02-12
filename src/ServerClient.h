@@ -32,4 +32,6 @@ ServerClient *createServerClient(Server *server, SOCKET socketFd, struct sockadd
 void freeServerClient(ServerClient *client);
 void sendMsgClient(ServerClient *client , char *msg);
 
+void ServerClientDisconnect(ServerClient *client);
+
 #endif //CHAT_IN_C_SERVERCLIENT_H

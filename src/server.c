@@ -21,37 +21,33 @@ void sendToAll(Server *server, ServerClient  *client, char *msg){
     size = snprintf(NULL, 0, "[%s]: %s", client->name, msg);
     buffer = calloc(size+1, sizeof(char ));
     sprintf(buffer, "[%s]: %s", client->name, msg );
-    printf("send to all: %s\n", buffer);
 
     mutexError = pthread_mutex_lock(&server->mutexClientList);
     if(mutexError != 0){
         fprintf(stderr, "sendToAll mutex (%p) lock error: %d \n", &server->mutexClientList, mutexError);
     }
 
-    printf("send to all: start mutex\n");
     for(int i = 0; i<server->size; i++){
         if( server->clients[i] != client && server->clients[i]->name != NULL) {
             sendMsgClient(server->clients[i], buffer);
         }
     }
-    printf("send to all: end \n");
+
     mutexError = pthread_mutex_unlock(&server->mutexClientList);
     if(mutexError != 0){
         fprintf(stderr, "sendToAll mutex (%p) unlock error: %d \n", &server->mutexClientList, mutexError);
     }
-    printf("send to all: end mutex\n");
     free(buffer);
 }
 
 void removeClient(Server *server, struct ServerClient *client){
     int mutexError;
 
-    printf("removeClient test\n");
     mutexError = pthread_mutex_lock(&server->mutexClientList);
     if(mutexError != 0){
         fprintf(stderr, "removeClient mutex (%p) lock error: %d \n", &server->mutexClientList, mutexError);
     }
-    printf("removeClient test2\n");
+
     if(server == NULL || client == NULL){
         return;
     }
@@ -78,7 +74,6 @@ void removeClient(Server *server, struct ServerClient *client){
 }
 
 Server* CreateServer(int port, int capacity){
-    pthread_mutexattr_t mutexattr;
     Server *server = calloc(1, sizeof(Server) );
 
     initSocket();
@@ -98,9 +93,8 @@ Server* CreateServer(int port, int capacity){
 
     server->status = 0;
     server->size = 0;
-    pthread_mutexattr_init(&mutexattr);
-    pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_ERRORCHECK_NP);
-    pthread_mutex_init(&server->mutexClientList, &mutexattr);
+
+    pthread_mutex_init(&server->mutexClientList, NULL);
     printf("Server on and listen on %d port\n", port);
     return server;
 }
@@ -167,19 +161,7 @@ void closeServer(Server *server){
     }
 
     while(server->size){
-        server->clients[0]->status = 1;
-        printf("closing client connection %s(%s)\n", server->clients[0]->name, inet_ntoa(server->clients[0]->clientSocketAddr.sin_addr));
-        if( shutdown(server->clients[0]->clientSocketFd, SHUT_RDWR) != 0){
-            displayLastSocketError("error shutdown client: ");
-        }
-        if( CLOSE_SOCKET(server->clients[0]->clientSocketFd) != 0){
-            displayLastSocketError("error close client: ");
-        }
-        printf("closing client thread\n");
-        if( pthread_join(server->clients[0]->pthread, NULL) != 0){
-            displayLastSocketError("error pthread_join client: ");
-        }
-        printf("closing client success\n");
+        ServerClientDisconnect(server->clients[0]);
     }
 
     pthreadError = pthread_join(server->serverThread, NULL);

@@ -8,7 +8,7 @@ void sendMsgClient(ServerClient *client , char *msg){
     if(send(client->clientSocketFd, msg, strlen(msg), 0) < 0)
     {
         displayLastSocketError("Error on send() for the client (%s)", inet_ntoa(client->clientSocketAddr.sin_addr));
-        return ;
+        return;
     }
 }
 
@@ -93,6 +93,23 @@ ServerClient *createServerClient(Server *server, SOCKET socketFd, struct sockadd
     return serverClient;
 }
 
+void ServerClientDisconnect(ServerClient *client){
+    client->status = 1;
+
+    printf("closing client connection %s(%s)\n", client->name, inet_ntoa(client->clientSocketAddr.sin_addr));
+    if( shutdown(client->clientSocketFd, SHUT_RDWR) != 0){
+        displayLastSocketError("error shutdown client: ");
+    }
+    if( CLOSE_SOCKET(client->clientSocketFd) != 0){
+        displayLastSocketError("error close client: ");
+    }
+    printf("closing client thread\n");
+    if( pthread_join(client->pthread, NULL) != 0){
+        displayLastSocketError("error pthread_join client: ");
+    }
+    printf("closing client success\n");
+}
+
 
 void freeServerClient(ServerClient *client){
     if(client != NULL){
@@ -101,5 +118,4 @@ void freeServerClient(ServerClient *client){
         }
         free(client);
     }
-
 }
