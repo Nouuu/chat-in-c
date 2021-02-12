@@ -45,7 +45,10 @@ Client *Client_create(char *address, int port, char *name){
         return NULL;
     }
     client->receivingBuffer = calloc(256, sizeof(char));
-    client->sendingBuffer = calloc(256, sizeof(char));
+
+    client->sendingBufferSize = 32;
+    client->sendingBuffer = calloc(client->sendingBufferSize, sizeof(char));
+
     sendServerPseudo(client, name);
 
     client->status = 0;
@@ -92,6 +95,32 @@ void *runReceivingClient(void *args){
     }
 }
 
+void getLine(Client *client){
+    int buffer;
+    size_t i = 0;
+    char *newSendingBuffer = NULL;
+
+    while(1){
+        buffer = getc(stdin);
+        client->sendingBuffer[i] = (char)buffer;
+        i += 1;
+
+        if(buffer == EOF || buffer == '\n'){
+            break;
+        }else if(i == client->sendingBufferSize){
+            client->sendingBufferSize *= 2;
+            newSendingBuffer = realloc(client->sendingBuffer, client->sendingBufferSize*sizeof(char));
+            if(newSendingBuffer == NULL){
+                perror("can't realloc: ");
+            }else{
+                free(client->sendingBuffer);
+                client->sendingBuffer = newSendingBuffer;
+            }
+        }
+    }
+}
+
+
 void *runSendingClient(void *args){
     Client *client = args;
     char *tmp;
@@ -99,8 +128,8 @@ void *runSendingClient(void *args){
 
     while (client->status == 0) {
 
-        memset(client->sendingBuffer, 0, 256);
-        fgets(client->sendingBuffer, 255, stdin);
+        memset(client->sendingBuffer, 0, client->sendingBufferSize);
+        getLine(client);
 
         size = strlen(client->sendingBuffer);
         if(size>1) {
@@ -118,10 +147,7 @@ void *runSendingClient(void *args){
             }
         }
     }
-
 }
-
-
 
 void startClient(Client *client){
     int pthreadError;

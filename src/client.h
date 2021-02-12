@@ -21,6 +21,7 @@ typedef struct Client{
     char *receivingBuffer, *sendingBuffer;
     int status;
     pthread_t receivingThread, sendingThread;
+    size_t sendingBufferSize;
 }Client;
 
 Client *Client_create(char *address, int port, char *name);

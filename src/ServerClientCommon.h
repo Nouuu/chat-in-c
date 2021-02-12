@@ -9,6 +9,8 @@
 #define CLIENT_PSEUDO_VALIDATED 1
 #define CLIENT_SERVER_CLOSED 2
 
+
+
 #ifdef WIN32 /* si vous êtes sous Windows */
 
 #define STD_INPUT_FD (SOCKET)(*GetStdHandle(stdin))
