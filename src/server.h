@@ -30,11 +30,18 @@ struct server{
     char commandBuffer[256];
 };
 
+Server* CreateServer(int port, int capacity);
+void startServer(Server *server);
+void startReceivingServer(Server *server);
+
+void waitForServer(Server *server);
+
 ServerClient *getServerClient(Server *server, char *name);
 
 void removeClient(Server *server, ServerClient *client);
 void sendToAllFromClient(Server *server, ServerClient  *client, char *msg);
 
+void closeServer(Server *server);
 void freeServer(Server *server);
 
 #endif //CHAT_IN_C_SERVER_H

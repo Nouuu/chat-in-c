@@ -39,7 +39,7 @@ void setServerBufferSize(Server *server, size_t size){
     }
 }
 
-void sendToAll(Server *server, char  *senderName, char *msg) {
+void sendToAll(Server *server, char *senderName, char *msg) {
     size_t size;
     int mutexError;
 
@@ -128,6 +128,9 @@ Server* CreateServer(int port, int capacity){
     server->messageBufferSize = CLIENT_INITIAL_BUFFER_SIZE;
     server->messageBuffer = calloc( server->messageBufferSize, sizeof(char));
 
+    server->serverThread = 0;
+    server->commandThread = 0;
+
     server->status = 0;
     server->size = 0;
 
@@ -165,7 +168,7 @@ void *runServer(void *args){
     socklen_t size = clientSocketSize;
 
     while(server->status == 0){
-
+        clientSocketFd = -1;
         clientSocketFd = accept(server->serverSocketFd, (struct sockaddr *) &(clientSocketAddr), &size);
         if(clientSocketFd != -1){
             ServerAddClient(server, createServerClient(server, clientSocketFd, clientSocketAddr));
@@ -177,7 +180,9 @@ void *runServer(void *args){
                     displayLastSocketError("Error runServer on accept (%llu): ", clientSocketFd);
                 }
             #else
-                displayLastSocketError("Error runServer on accept (%llu): ", clientSocketFd);
+                if(errno != EINVAL) {
+                    displayLastSocketError("Error runServer on accept (%llu): ", clientSocketFd);
+                }
             #endif
 
 
@@ -190,7 +195,7 @@ void *runServer(void *args){
 void closeServer(Server *server){
     int pthreadError;
 
-    //pthread_mutex_lock(&server->mutexClientList);
+   // pthread_mutex_lock(&server->mutexClientList);
 
     if(server->status == 0){
         server->status = 1;
@@ -201,19 +206,28 @@ void closeServer(Server *server){
     printf("closing server with %lu connection left\n", server->size);
     sendToAllFromServer(server, "The Server is closing");
 
+
     while(server->size){
         ServerClientDisconnect(server->clients[0]);
     }
 
+    #ifdef linux
+        if( shutdown( server->serverSocketFd, SHUT_RDWR) != 0){
+           displayLastSocketError("error shutdown server: ");
+        }
+    #endif
+
     CLOSE_SOCKET(server->serverSocketFd);
 
-    pthreadError = pthread_join(server->serverThread, NULL);
-    if(pthreadError != 0){
-        perror("error closing serverThread: ");
-        return;
+    if(server->serverThread != 0) {
+        pthreadError = pthread_join(server->serverThread, NULL);
+        if (pthreadError != 0) {
+            perror("error closing serverThread: ");
+            return;
+        }
     }
 
-    if(server->commandThread != pthread_self()){
+    if(server->commandThread != 0 && server->commandThread != pthread_self()){
         printf("closing server command thread\n");
         pthreadError = pthread_join(server->commandThread, NULL);
         if(pthreadError != 0){
@@ -222,7 +236,7 @@ void closeServer(Server *server){
         }
     }
 
-    //pthread_mutex_unlock(&server->mutexClientList);
+  //  pthread_mutex_unlock(&server->mutexClientList);
     printf("server close success\n");
 }
 
@@ -246,6 +260,18 @@ void *runServerCommand(void *args){
     return server;
 }
 
+void startReceivingServer(Server *server){
+    int pthreadError;
+
+    pthreadError = pthread_create(&(server->serverThread), NULL, &runServer, server);
+    if(pthreadError != 0){
+        printf("error %d\n", pthreadError);
+        perror("pthread failed server command: ");
+        return ;
+    }
+}
+
+
 void startServer(Server *server){
     int pthreadError;
 
@@ -255,18 +281,19 @@ void startServer(Server *server){
         return ;
     }
 
-    pthreadError = pthread_create(&(server->serverThread), NULL, &runServer, server);
-    if(pthreadError != 0){
-        perror("pthread failed server command: ");
-        return ;
-    }
-
+    startReceivingServer(server);
 }
 
 void waitForServer(Server *server){
-    if( pthread_join(server->commandThread, NULL) != 0){
+   /* if( pthread_join(server->commandThread, NULL) != 0){
+        perror("error waiting for server: ");
+    }*/
+    server->status = 1;
+    printf("waiting\n");
+    if( pthread_join(server->serverThread, NULL) != 0){
         perror("error waiting for server: ");
     }
+    printf("waiting end\n");
 }
 
 void freeServer(Server *server){
@@ -282,31 +309,4 @@ void freeServer(Server *server){
 
         free(server);
     }
-}
-
-int main(int arg, char **argv) {
-    Server *server;
-    int port;
-
-    if (arg != 2) {
-        printf("You need to provide port n°\n");
-        return EXIT_FAILURE;
-    }
-
-    initSocket();
-
-    port = atoi(argv[1]);
-
-    server = CreateServer(port, 40);
-
-    if(server != NULL){
-        startServer(server);
-        waitForServer(server);
-        closeServer(server);
-
-        freeServer(server);
-    }
-
-    endSocket();
-    return EXIT_SUCCESS;
 }

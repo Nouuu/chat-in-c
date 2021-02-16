@@ -4,9 +4,8 @@
 
 #include "client.h"
 
-void sendServerPseudo(Client  *client, char *name){
+void sendServerPseudo(Client  *client, const char *name){
     char res = 0;
-
     if(name == NULL){
         printf("enter your name:");
         memset(client->sendingBuffer, 0, 256);
@@ -16,6 +15,7 @@ void sendServerPseudo(Client  *client, char *name){
     }
 
     while( res == CLIENT_PSEUDO_ALREADY_USE) {
+
         if (send(client->socket_fd, name, strlen(name) , 0) < 0) {
             displayLastSocketError("Error on send() for the client name");
             return;
@@ -36,7 +36,7 @@ void sendServerPseudo(Client  *client, char *name){
 
 }
 
-Client *Client_create(char *address, int port, char *name){
+Client *Client_create(const char *address, int port, const char *name){
     Client *client = malloc( sizeof(Client));
 
     client->socket_fd = createClientSocket(AF_INET, SOCK_STREAM, 0, port, address);
@@ -53,6 +53,7 @@ Client *Client_create(char *address, int port, char *name){
     sendServerPseudo(client, name);
 
     client->status = 0;
+    printf("client created\n");
     return client;
 }
 
@@ -153,43 +154,55 @@ void executeClientInternalCommand(Client *client){
     }
 }
 
-void sendMessageToServer(Client *client){
-    int n;
-    char *message = getClientMessage(client);
-    size_t size =  strlen(message);
+int clientSendMessage(Client *client, const char *message){
+    int n = 0;
+    size_t size;
+    char buffer[FRAME_DATA_START] = {0};
 
-    //split the size in the first 4 byte of the frame
-    for(int i = 0; i<4; i++ ){
-        client->sendingBuffer[3-i] = (char)((size >> (i*8))&0xFF);
-    }
+    if(message == NULL || client == NULL){ return 0; }
+
+    size = strlen(message);
 
     if(size >= 1) {
         size += FRAME_DATA_START;
 
-        n = send(client->socket_fd, client->sendingBuffer, size, 0);
+        //split the size in the first 4 byte of the frame
+        for(int i = 0; i<FRAME_DATA_START; i++ ){
+            buffer[3-i] = (char)((size >> (i*8))&0xFF);
+        }
+
+        n = send(client->socket_fd, buffer, FRAME_DATA_START, 0);
         if (n == 0) {
             printf("Server disconnected !\n");
-            client->status = 1;
+            client->status = CLIENT_DISCONNECTED;
+            return -1;
+        }
+
+        n = send(client->socket_fd, message, size, 0);
+        if (n == 0) {
+            printf("Server disconnected !\n");
+            client->status = CLIENT_DISCONNECTED;
+            return -1;
         }
     }
+    return n;
 }
 
 void sendMessage(Client *client){
     FrameType messageType;
-
-    removeLastBackLine( getClientMessage(client) );
-    messageType = getMessageType( getClientMessage(client) );
+    char *message = getClientMessage(client);
+    removeLastBackLine( message );
+    messageType = getMessageType( message );
 
     switch (messageType) {
         case INTERNAL_COMMAND: executeClientInternalCommand(client);
             break;
-        case MESSAGE: sendMessageToServer(client);
+        case MESSAGE:
+            clientSendMessage(client, message);
             break;
         default:break;
     }
-
 }
-
 
 void *runSendingClient(void *args){
     Client *client = args;
@@ -216,38 +229,6 @@ void startClient(Client *client){
         return;
     }
 }
-
-int main(int argc, char **argv) {
-    Client *client;
-    if (argc < 3) {
-        printf("You need to provide ip address and port n° and name\n");
-        return EXIT_FAILURE;
-    }
-
-    initSocket();
-
-    char *destAddress = argv[1];
-    int port = atoi(argv[2]);
-
-    if(argc >= 4) {
-        client = Client_create(destAddress, port, argv[3]);
-    }else{
-        client = Client_create(destAddress, port, NULL);
-    }
-    if(client != NULL){
-        startClient(client);
-
-        pthread_join(client->sendingThread, NULL);
-        pthread_join(client->receivingThread, NULL);
-
-        closeClient(client);
-        freeClient(client);
-    }
-
-    endSocket();
-    return EXIT_SUCCESS;
-}
-
 
 void freeClient(Client *client){
     if(client != NULL){
