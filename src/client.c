@@ -241,8 +241,25 @@ int main(int argc, char **argv) {
         pthread_join(client->receivingThread, NULL);
 
         closeClient(client);
+        freeClient(client);
     }
 
     endSocket();
     return EXIT_SUCCESS;
+}
+
+
+void freeClient(Client *client){
+    if(client != NULL){
+        if(client->sendingBuffer != NULL){
+            free(client->sendingBuffer);
+        }
+
+        if(client->receivingBuffer != NULL){
+            free(client->receivingBuffer);
+        }
+
+        free(client);
+
+    }
 }

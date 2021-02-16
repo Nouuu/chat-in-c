@@ -214,8 +214,10 @@ void closeServer(Server *server){
         }
     }
 
+    server->size = 0;
+
     CLOSE_SOCKET(server->serverSocketFd);
-   //pthread_mutex_unlock(&server->mutexClientList);
+    //pthread_mutex_unlock(&server->mutexClientList);
     printf("server close success\n");
 }
 
@@ -236,7 +238,7 @@ void *runServerCommand(void *args){
             printf("unknown command \"%s\"\n", server->commandBuffer);
         }
     }
-
+    return server;
 }
 
 void startServer(Server *server){
@@ -262,6 +264,21 @@ void waitForServer(Server *server){
     }
 }
 
+void freeServer(Server *server){
+    if(server != NULL){
+
+        if(server->messageBuffer != NULL){
+            free(server->messageBuffer);
+        }
+
+        if(server->clients != NULL){
+            free(server->clients);
+        }
+
+        free(server);
+    }
+}
+
 int main(int arg, char **argv) {
     Server *server;
     int port;
@@ -281,6 +298,8 @@ int main(int arg, char **argv) {
         startServer(server);
         waitForServer(server);
         closeServer(server);
+
+        freeServer(server);
     }
 
     endSocket();

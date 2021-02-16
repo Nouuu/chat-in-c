@@ -156,6 +156,10 @@ void freeServerClient(ServerClient *client){
         if(client->name != NULL){
             free(client->name);
         }
+        if(client->buffer != NULL){
+            free(client->buffer);
+        }
+
         free(client);
     }
 }

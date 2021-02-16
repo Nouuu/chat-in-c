@@ -35,4 +35,6 @@ ServerClient *getServerClient(Server *server, char *name);
 void removeClient(Server *server, ServerClient *client);
 void sendToAllFromClient(Server *server, ServerClient  *client, char *msg);
 
+void freeServer(Server *server);
+
 #endif //CHAT_IN_C_SERVER_H

@@ -26,5 +26,6 @@ typedef struct Client{
 }Client;
 
 Client *Client_create(char *address, int port, char *name);
+void freeClient(Client *client);
 
 #endif //CHAT_IN_C_CLIENT_H
