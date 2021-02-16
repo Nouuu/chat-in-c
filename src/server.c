@@ -13,14 +13,40 @@ ServerClient *getServerClient(Server *server, char *name){
     return NULL;
 }
 
+void setServerBufferSize(Server *server, size_t size){
+    int mutexError;
+    char *newBuffer;
+
+    mutexError = pthread_mutex_lock(&server->mutexClientList);
+    if(mutexError != 0){
+        fprintf(stderr, "setNewBufferSize mutex (%p) lock error: %d \n", &server->mutexClientList, mutexError);
+    }
+
+    while(size>server->messageBufferSize){
+        server->messageBufferSize *= 2;
+    }
+
+    newBuffer = realloc( server->messageBuffer, server->messageBufferSize);
+    if(newBuffer == NULL){
+        perror("can't realloc server message buffer: ");
+    }else{
+        server->messageBuffer = newBuffer;
+    }
+
+    mutexError = pthread_mutex_unlock(&server->mutexClientList);
+    if(mutexError != 0){
+        fprintf(stderr, "setNewBufferSize mutex (%p) unlock error: %d \n", &server->mutexClientList, mutexError);
+    }
+}
+
 void sendToAll(Server *server, char  *senderName, char *msg) {
     size_t size;
-    char *buffer;
     int mutexError;
 
-    size = snprintf(NULL, 0, "[%s]: %s", senderName, msg);
-    buffer = calloc(size+1, sizeof(char ));
-    sprintf(buffer, "[%s]: %s", senderName, msg );
+    size = snprintf(NULL, 0, "[%s]: %s", senderName, msg)+1;
+    setServerBufferSize(server,size);
+
+    snprintf(server->messageBuffer, size, "[%s]: %s", senderName, msg );
 
     mutexError = pthread_mutex_lock(&server->mutexClientList);
     if(mutexError != 0){
@@ -29,7 +55,7 @@ void sendToAll(Server *server, char  *senderName, char *msg) {
 
     for(int i = 0; i<server->size; i++){
         if( server->clients[i]->name != NULL && strcmp(senderName, server->clients[i]->name) != 0) {
-            sendMsgClient(server->clients[i], buffer);
+            sendMsgClient(server->clients[i], server->messageBuffer);
         }
     }
 
@@ -37,7 +63,6 @@ void sendToAll(Server *server, char  *senderName, char *msg) {
     if(mutexError != 0){
         fprintf(stderr, "sendToAll mutex (%p) unlock error: %d \n", &server->mutexClientList, mutexError);
     }
-    free(buffer);
 
 }
 
@@ -99,6 +124,9 @@ Server* CreateServer(int port, int capacity){
     }
 
     server->clients = calloc(capacity, sizeof( ServerClient *) );
+
+    server->messageBufferSize = CLIENT_INITIAL_BUFFER_SIZE;
+    server->messageBuffer = calloc( server->messageBufferSize, sizeof(char));
 
     server->status = 0;
     server->size = 0;

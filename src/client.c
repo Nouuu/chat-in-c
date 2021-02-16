@@ -47,7 +47,7 @@ Client *Client_create(char *address, int port, char *name){
     client->receivingBufferSize = 64;
     client->receivingBuffer = calloc(client->receivingBufferSize, sizeof(char));
 
-    client->sendingBufferSize = CLIENT_INITIAL_BUFFER_SIZE + FRAME_DATA_SIZE;
+    client->sendingBufferSize = CLIENT_INITIAL_BUFFER_SIZE;
     client->sendingBuffer = calloc(client->sendingBufferSize, sizeof(char));
 
     sendServerPseudo(client, name);
@@ -144,7 +144,7 @@ char *getClientMessage(Client *client){
 }
 
 void executeClientInternalCommand(Client *client){
-    char *command = client->sendingBuffer + FRAME_DATA_START +2; // +2 for the \\
+    char *command = getClientMessage(client) +2; // +2 for the \\
 
     if(strcmp(command, "exit") == 0){
         closeClient(client);
@@ -156,14 +156,14 @@ void executeClientInternalCommand(Client *client){
 void sendMessageToServer(Client *client){
     int n;
     char *message = getClientMessage(client);
-    size_t size =  strlen(  message);
+    size_t size =  strlen(message);
 
     //split the size in the first 4 byte of the frame
     for(int i = 0; i<4; i++ ){
         client->sendingBuffer[3-i] = (char)((size >> (i*8))&0xFF);
     }
 
-    if(size > 1) {
+    if(size >= 1) {
         size += FRAME_DATA_START;
 
         n = send(client->socket_fd, client->sendingBuffer, size, 0);

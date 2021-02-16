@@ -55,7 +55,7 @@ int getNextByteNumber(ServerClient *client){
     return n;
 }
 
-void setNewBufferSize(ServerClient *client, size_t size){
+void setServerClientNewBufferSize(ServerClient *client, size_t size){
     char *tmp;
 
     while(size>client->allocatedBuffer) {
@@ -89,7 +89,7 @@ void *runServerClient(void *arg){
             }else{
                 nextComingByteNumber = getNextByteNumber(client);
 
-                setNewBufferSize(client, nextComingByteNumber);
+                setServerClientNewBufferSize(client, nextComingByteNumber);
 
                 client->buffer[nextComingByteNumber] = '\0';
 

@@ -14,7 +14,11 @@
 
 #define COMMAND_CHAR '\\'
 
-#define CLIENT_INITIAL_BUFFER_SIZE 5
+#define CLIENT_INITIAL_BUFFER_SIZE 32
+
+#if( CLIENT_INITIAL_BUFFER_SIZE <= FRAME_DATA_START)
+#error "client initial buffer cant be <= FRAME_DATA_START"
+#endif
 
 typedef enum FrameType{UNDEFINED, COMMAND, INTERNAL_COMMAND, MESSAGE, SERVER_INFO}FrameType;
 

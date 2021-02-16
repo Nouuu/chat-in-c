@@ -25,6 +25,8 @@ struct server{
     size_t capacityMax, size;
     ServerClient **clients;
     pthread_t serverThread, commandThread;
+    char *messageBuffer;
+    size_t messageBufferSize;
     char commandBuffer[256];
 };
 
