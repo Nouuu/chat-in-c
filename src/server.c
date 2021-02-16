@@ -170,9 +170,17 @@ void *runServer(void *args){
         if(clientSocketFd != -1){
             ServerAddClient(server, createServerClient(server, clientSocketFd, clientSocketAddr));
         }else{
-            if(errno != EINVAL) {
+            #ifdef WIN32
+                if(WSAGetLastError() != WSAEINTR) { // WSAEINTR (10004) Interrupted function call.
+                                                    //                  A blocking operation was interrupted by a call to
+                                                    // trigered when we call void closeServer(Server *server)
+                    displayLastSocketError("Error runServer on accept (%llu): ", clientSocketFd);
+                }
+            #else
                 displayLastSocketError("Error runServer on accept (%llu): ", clientSocketFd);
-            }
+            #endif
+
+
             server->status = 1;
         }
     }
@@ -193,17 +201,16 @@ void closeServer(Server *server){
     printf("closing server with %lu connection left\n", server->size);
     sendToAllFromServer(server, "The Server is closing");
 
-    if( shutdown(server->serverSocketFd, SHUT_RDWR) != 0){
-        displayLastSocketError("error shutdown server: ");
-    }
-
     while(server->size){
         ServerClientDisconnect(server->clients[0]);
     }
 
+    CLOSE_SOCKET(server->serverSocketFd);
+
     pthreadError = pthread_join(server->serverThread, NULL);
     if(pthreadError != 0){
         perror("error closing serverThread: ");
+        return;
     }
 
     if(server->commandThread != pthread_self()){
@@ -211,12 +218,10 @@ void closeServer(Server *server){
         pthreadError = pthread_join(server->commandThread, NULL);
         if(pthreadError != 0){
             perror("error closing command Thread: ");
+            return;
         }
     }
 
-    server->size = 0;
-
-    CLOSE_SOCKET(server->serverSocketFd);
     //pthread_mutex_unlock(&server->mutexClientList);
     printf("server close success\n");
 }

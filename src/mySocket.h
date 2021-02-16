@@ -8,9 +8,10 @@
 #include <stdio.h>
 #include <stdarg.h>
 
-#pragma comment(lib, "ws2_32.lib")
 
 #ifdef WIN32 /* si vous êtes sous Windows */
+
+#pragma comment(lib, "ws2_32.lib")
 
 #include <winsock2.h>
 
