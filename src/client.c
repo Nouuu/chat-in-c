@@ -44,9 +44,10 @@ Client *Client_create(char *address, int port, char *name){
     if(client->socket_fd  == -1){
         return NULL;
     }
-    client->receivingBuffer = calloc(256, sizeof(char));
+    client->receivingBufferSize = 64;
+    client->receivingBuffer = calloc(client->receivingBufferSize, sizeof(char));
 
-    client->sendingBufferSize = 32;
+    client->sendingBufferSize = CLIENT_INITIAL_BUFFER_SIZE + FRAME_DATA_SIZE;
     client->sendingBuffer = calloc(client->sendingBufferSize, sizeof(char));
 
     sendServerPseudo(client, name);
@@ -58,9 +59,8 @@ Client *Client_create(char *address, int port, char *name){
 void closeClient(Client *client){
     if(client->status == 0){
         client->status = 1;
-    }else{
-        return;
-    }
+    }else{ return; }
+
     printf("closing client\n");
 
     if( shutdown(client->socket_fd, SHUT_RDWR) != 0){
@@ -83,8 +83,8 @@ void *runReceivingClient(void *args){
     Client *client = args;
 
     while (client->status == 0) {
-        memset(client->receivingBuffer, 0, 256);
-        int n = recv(client->socket_fd, client->receivingBuffer, 256, 0);
+        memset(client->receivingBuffer, 0, client->receivingBufferSize);
+        int n = recv(client->socket_fd, client->receivingBuffer, client->receivingBufferSize, 0);
         if (n == 0) {
             printf("Server disconnected !\n");
             client->status = 1;
@@ -93,11 +93,12 @@ void *runReceivingClient(void *args){
             printf("%s\n", client->receivingBuffer);
         }
     }
+    return args;
 }
 
 void getLine(Client *client){
     int buffer;
-    size_t i = 0;
+    size_t i = FRAME_DATA_START;
     char *newSendingBuffer = NULL;
 
     while(1){
@@ -109,43 +110,94 @@ void getLine(Client *client){
             break;
         }else if(i == client->sendingBufferSize){
             client->sendingBufferSize *= 2;
+
             newSendingBuffer = realloc(client->sendingBuffer, client->sendingBufferSize*sizeof(char));
+
             if(newSendingBuffer == NULL){
-                perror("can't realloc: ");
+                perror("can't realloc\n: ");
             }else{
-                free(client->sendingBuffer);
                 client->sendingBuffer = newSendingBuffer;
             }
         }
     }
 }
 
+FrameType getMessageType(const char *msg){
+    if(msg == NULL){
+        return UNDEFINED;
+    }else if(msg[0] == COMMAND_CHAR && msg[1] == COMMAND_CHAR){ // if the string was only 1 long the msg[0] should not be equal to '\\' so no need to check
+            return  INTERNAL_COMMAND;
+    }else{
+        return MESSAGE;
+    }
+}
+
+void removeLastBackLine(char *string){
+    char *tmp = strpbrk(string, "\r\n");
+    if(tmp != NULL) {
+        *tmp = '\0';
+    }
+}
+
+char *getClientMessage(Client *client){
+    return client->sendingBuffer + FRAME_DATA_START;
+}
+
+void executeClientInternalCommand(Client *client){
+    char *command = client->sendingBuffer + FRAME_DATA_START +2; // +2 for the \\
+
+    if(strcmp(command, "exit") == 0){
+        closeClient(client);
+    }else{
+        printf("unknown command \"%s\" \n", command);
+    }
+}
+
+void sendMessageToServer(Client *client){
+    int n;
+    char *message = getClientMessage(client);
+    size_t size =  strlen(  message);
+
+    //split the size in the first 4 byte of the frame
+    for(int i = 0; i<4; i++ ){
+        client->sendingBuffer[3-i] = (char)((size >> (i*8))&0xFF);
+    }
+
+    if(size > 1) {
+        size += FRAME_DATA_START;
+
+        n = send(client->socket_fd, client->sendingBuffer, size, 0);
+        if (n == 0) {
+            printf("Server disconnected !\n");
+            client->status = 1;
+        }
+    }
+}
+
+void sendMessage(Client *client){
+    FrameType messageType;
+
+    removeLastBackLine( getClientMessage(client) );
+    messageType = getMessageType( getClientMessage(client) );
+
+    switch (messageType) {
+        case INTERNAL_COMMAND: executeClientInternalCommand(client);
+            break;
+        case MESSAGE: sendMessageToServer(client);
+            break;
+        default:break;
+    }
+
+}
+
 
 void *runSendingClient(void *args){
     Client *client = args;
-    char *tmp;
-    size_t size;
 
     while (client->status == 0) {
-
         memset(client->sendingBuffer, 0, client->sendingBufferSize);
         getLine(client);
-
-        size = strlen(client->sendingBuffer);
-        if(size>1) {
-            tmp = strpbrk(client->sendingBuffer, "\r\n");
-            *tmp = '\0';
-
-            if(strcmp(client->sendingBuffer, "\\exit") == 0){
-                closeClient(client);
-            }else{
-                int n = send(client->socket_fd, client->sendingBuffer, size, 0);
-                if (n == 0) {
-                    printf("Server disconnected !\n");
-                    client->status = 1;
-                }
-            }
-        }
+        sendMessage(client);
     }
 }
 

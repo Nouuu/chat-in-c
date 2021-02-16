@@ -18,10 +18,11 @@
 
 typedef struct Client{
     SOCKET socket_fd;
-    char *receivingBuffer, *sendingBuffer;
+    char *receivingBuffer;
+    char *sendingBuffer;
     int status;
     pthread_t receivingThread, sendingThread;
-    size_t sendingBufferSize;
+    size_t sendingBufferSize, receivingBufferSize;
 }Client;
 
 Client *Client_create(char *address, int port, char *name);

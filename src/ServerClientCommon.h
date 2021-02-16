@@ -9,7 +9,14 @@
 #define CLIENT_PSEUDO_VALIDATED 1
 #define CLIENT_SERVER_CLOSED 2
 
+#define FRAME_DATA_SIZE 4
+#define FRAME_DATA_START FRAME_DATA_SIZE
 
+#define COMMAND_CHAR '\\'
+
+#define CLIENT_INITIAL_BUFFER_SIZE 5
+
+typedef enum FrameType{UNDEFINED, COMMAND, INTERNAL_COMMAND, MESSAGE, SERVER_INFO}FrameType;
 
 #ifdef WIN32 /* si vous êtes sous Windows */
 

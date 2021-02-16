@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "ServerClientCommon.h"
 
 typedef struct ServerClient ServerClient;
@@ -18,7 +19,8 @@ typedef struct ServerClient ServerClient;
 
 struct ServerClient{
     char *name;
-    char buffer[256];
+    size_t allocatedBuffer;
+    char *buffer;
     char status;
     pthread_t pthread;
     SOCKET clientSocketFd;

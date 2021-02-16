@@ -45,25 +45,63 @@ int getClientPseudo(ServerClient *client){
     return 0;
 }
 
+int getNextByteNumber(ServerClient *client){
+    int n = 0;
+
+    for(int i = 0; i<FRAME_DATA_SIZE; i++){
+        n |= ( ((uint8_t) (client->buffer[i]))<<((3-i)*8));
+    }
+
+    return n;
+}
+
+void setNewBufferSize(ServerClient *client, size_t size){
+    char *tmp;
+
+    while(size>client->allocatedBuffer) {
+        client->allocatedBuffer *= 2;
+    }
+
+    tmp = realloc( client->buffer, client->allocatedBuffer);
+    if(tmp != NULL){
+        client->buffer = tmp;
+    }else{
+        perror("can't realloc client buffer: ");
+    }
+
+}
+
 void *runServerClient(void *arg){
-    int n;
-    char bufferMessage[256] = {0};
+    int nextComingByteNumber = 0;
+    int receivedByte;
     ServerClient *client = arg;
-    memset(client->buffer, 0, 256);
+    memset(client->buffer, 0, client->allocatedBuffer);
 
     if( !getClientPseudo(client)){
 
         sendToAllFromClient(client->server, client, "connected");
 
         while (client->status == 0) {
-            n = recv(client->clientSocketFd, bufferMessage, 255, 0);
-            printf("ServerClient %d \"%s\"\n", n, bufferMessage);
-            if(n <= 0){
+            receivedByte = recv(client->clientSocketFd, client->buffer, FRAME_DATA_SIZE, 0);
+
+            if(receivedByte <= 0){
                 client->status = 1;
             }else{
-                printf("[%s]%s\n", client->name, bufferMessage);
-                sendToAllFromClient(client->server, client, bufferMessage);
-                memset(bufferMessage, 0, 256);
+                nextComingByteNumber = getNextByteNumber(client);
+
+                setNewBufferSize(client, nextComingByteNumber);
+
+                client->buffer[nextComingByteNumber] = '\0';
+
+                receivedByte = recv(client->clientSocketFd, client->buffer, nextComingByteNumber, 0);
+
+                if(receivedByte <= 0){
+                    client->status = 1;
+                }else {
+                    printf("[%s]%s\n", client->name, client->buffer);
+                    sendToAllFromClient(client->server, client, client->buffer);
+                    memset(client->buffer, 0, client->allocatedBuffer);
+                }
             }
         }
         printf("exit ServerCLient\n");
@@ -78,6 +116,8 @@ void *runServerClient(void *arg){
 ServerClient *createServerClient(Server *server, SOCKET socketFd, struct sockaddr_in clientSocketAddr ){
     int pthreadError;
     ServerClient *serverClient = calloc(1, sizeof(ServerClient));
+    serverClient->allocatedBuffer = CLIENT_INITIAL_BUFFER_SIZE;
+    serverClient->buffer = calloc( serverClient->allocatedBuffer, sizeof(char));
     serverClient->clientSocketFd = socketFd;
     serverClient->clientSocketAddr = clientSocketAddr;
     serverClient->server = server;

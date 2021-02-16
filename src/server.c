@@ -116,7 +116,6 @@ void ServerAddClient(Server *server,  ServerClient *serverClient){
         fprintf(stderr, "ServerAddClient mutex (%p) lock error: %d \n", &server->mutexClientList, mutexError);
     }
 
-
     if(server == NULL || serverClient == NULL || server->size == server->capacityMax){
         return;
     }
@@ -149,7 +148,7 @@ void *runServer(void *args){
             server->status = 1;
         }
     }
-
+    return server;
 }
 
 void closeServer(Server *server){
